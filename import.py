@@ -52,6 +52,7 @@ class ImportGeometry(Operator, ImportHelper):
 
             # Load material & texture
             mat = bpy.data.materials.new(name=model_element.material_name)
+            mat.blend_method = 'BLEND'
             texture_name = Path(model_element.material.diffuse_texture).name
             texture_path = path.with_name(texture_name).with_suffix('.dds')
             if not Path.exists(texture_path):
@@ -63,9 +64,12 @@ class ImportGeometry(Operator, ImportHelper):
             mat.use_nodes = True
             mat.node_tree.nodes.clear()
             mat_output = mat.node_tree.nodes.new('ShaderNodeOutputMaterial')
+            principled_node = mat.node_tree.nodes.new('ShaderNodeBsdfPrincipled')
             texture_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
             texture_node.image = bpy.data.images.load(filepath=str(texture_path))
-            mat.node_tree.links.new(texture_node.outputs[0], mat_output.inputs[0])
+            mat.node_tree.links.new(texture_node.outputs[0], principled_node.inputs[0])
+            mat.node_tree.links.new(texture_node.outputs[1], principled_node.inputs[21])
+            mat.node_tree.links.new(principled_node.outputs[0], mat_output.inputs[0])
 
             # Building lods
             for i, lod in enumerate(model_element.lods):
