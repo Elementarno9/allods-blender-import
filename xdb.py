@@ -12,6 +12,7 @@ class XdbParser:
         self._index_buffer = None
         self._vertex_buffer = None
         self._model_elements = None
+        self._materials = None
         self._skeleton = None
     
     def get_vertex_declarations(self):
@@ -53,11 +54,12 @@ class XdbParser:
     def get_model_elements(self):
         if self._model_elements == None:
             self._model_elements = []
+            self._materials = {}
             for item in self.content.findall('modelElements/Item'):
                 lods = []
                 for lod in item.findall('lods/Item'):
                     lods.append(XdbParser._parse_geometry_fragment(lod))
-                material = None #XdbParser._parse_material(item.find('material'))
+                material = XdbParser._parse_material(item.find('material'))
                 material_name = item.find('materialName').text
                 name = item.find('name').text
                 skin_index = int(item.find('skinIndex').text)
@@ -65,17 +67,25 @@ class XdbParser:
                 vertex_declaration_id = int(item.find('vertexDeclarationID').text)
                 virtual_offset = float(item.find('virtualOffset').text)
                 self._model_elements.append(geometry.ModelElement(lods, name, material_name, vertex_declaration_id, vertex_buffer_offset, material, skin_index, virtual_offset))
+                self._materials[material_name] = material
         return self._model_elements
 
     def get_binary_file(self):
         return XdbParser._find_href(self.content, 'binaryFile')
+    
+    def get_texture_info(self):
+        return (
+            int(self.content.find('width').text),
+            int(self.content.find('height').text),
+            self.content.find('type').text
+        )
 
     @staticmethod
     def _parse_material(xml):
         blend_effect = geometry.BlendEffect[xml.find('BlendEffect').text]
-        diffuse_texture = XdbParser._find_href(xml, 'diffuseTexture')
+        diffuse_texture = XdbParser._find_href(xml, 'diffuseTexture').split('#')[0]
         scroll_alpha = bool(du.strtobool(xml.find('scrollAlpha').text))
-        scroll_rgb =  bool(du.strtobool((xml.find('ScrollRGB') or xml.find('scrollRGB')).text))
+        scroll_rgb =  bool(du.strtobool(xml.find('ScrollRGB').text))
         transparency_texture = XdbParser._find_href(xml, 'transparencyTexture')
         transparent = bool(du.strtobool(xml.find('transparent').text))
         use_fog = bool(du.strtobool(xml.find('useFog').text))

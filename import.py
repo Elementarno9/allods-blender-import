@@ -1,8 +1,8 @@
 import bpy
 import mathutils
 
-import argparse
-import pathlib
+import io
+from pathlib import Path
 import itertools
 
 from struct import unpack
@@ -11,6 +11,7 @@ from . import xdb
 from . import blob
 from . import vertex
 from . import skeleton
+from . import texture
 
 from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty
@@ -27,7 +28,7 @@ class ImportGeometry(Operator, ImportHelper):
     )
 
     def execute(self, context):
-        path = pathlib.Path(self.filepath)
+        path = Path(self.filepath)
 
         parser = xdb.XdbParser(path)
         bin_parser = blob.BinParser(path.with_suffix('.bin'))
@@ -48,6 +49,25 @@ class ImportGeometry(Operator, ImportHelper):
         for model_element in parser.get_model_elements():
             collection = bpy.data.collections.new(model_element.name)
             bpy.context.scene.collection.children.link(collection)
+
+            # Load material & texture
+            mat = bpy.data.materials.new(name=model_element.material_name)
+            texture_name = Path(model_element.material.diffuse_texture).name
+            texture_path = path.with_name(texture_name).with_suffix('.dds')
+            if not Path.exists(texture_path):
+                texture_parser = xdb.XdbParser(path.with_name(texture_name))
+                texture_data = texture.TextureData(path.with_name(Path(texture_parser.get_binary_file()).name),
+                                                   *texture_parser.get_texture_info())
+                texture_data.save_to(texture_path)
+
+            mat.use_nodes = True
+            mat.node_tree.nodes.clear()
+            mat_output = mat.node_tree.nodes.new('ShaderNodeOutputMaterial')
+            texture_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
+            texture_node.image = bpy.data.images.load(filepath=str(texture_path))
+            mat.node_tree.links.new(texture_node.outputs[0], mat_output.inputs[0])
+
+            # Building lods
             for i, lod in enumerate(model_element.lods):
                 lod_indices = indices[lod.index_buffer_begin//3:lod.index_buffer_end//3]
                 lod_vertices = [vertices[i] for i in set(itertools.chain.from_iterable(lod_indices))]
@@ -60,6 +80,7 @@ class ImportGeometry(Operator, ImportHelper):
                     for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
                         uv_layer.data[loop_idx].uv = lod_vertices[vert_idx].texcoord0
                 obj = bpy.data.objects.new(model_element.name + '_lod' + str(i), mesh)
+                obj.data.materials.append(mat)
                 collection.objects.link(obj)
         
         armature = bpy.data.armatures.new("skeleton")
