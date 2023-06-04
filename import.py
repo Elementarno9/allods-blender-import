@@ -26,6 +26,17 @@ class ImportGeometry(Operator, ImportHelper):
         default="*.xdb",
         options={'HIDDEN'},
     )
+    lods_load: bpy.props.EnumProperty(
+        name="Load LODs",
+        description="Which LODs should be loaded",
+        items=[
+            ("LODALL", "All LODs", ""),
+            ("LOD0", "LOD 0", ""),
+            ("LOD1", "LOD 1", ""),
+            ("LOD2", "LOD 2", "")
+        ],
+        default="LODALL"
+    )
 
     def execute(self, context):
         path = Path(self.filepath)
@@ -46,10 +57,25 @@ class ImportGeometry(Operator, ImportHelper):
         skeleton_parser = skeleton.BoneBinParser(skeleton_buffer)
         bones = skeleton_parser.get_bones()
 
-        for model_element in parser.get_model_elements():
-            collection = bpy.data.collections.new(model_element.name)
-            bpy.context.scene.collection.children.link(collection)
+        if self.lods_load != "LODALL":
+            lods_filter = lambda i: int(self.lods_load[3:4]) == i
+        else:
+            lods_filter = lambda i: True
 
+        model_name = str(path.name).split('.')[0]
+        lods_collections = {}
+        for lod_id in range(min(map(lambda e: len(e.lods), parser.get_model_elements()))):
+            if not lods_filter(lod_id):
+                continue
+            collection = bpy.data.collections.new(f"{model_name}_lod{lod_id}")
+            bpy.context.scene.collection.children.link(collection)
+            lods_collections[lod_id] = collection
+
+        if len(lods_collections) == 0:
+            self.report({"IMPORT ERROR"}, "No LODs to be found. Try to change `Load LODs` param.")
+            return {"CANCELLED"}
+
+        for model_element in parser.get_model_elements():
             # Load material & texture
             mat = bpy.data.materials.new(name=model_element.material_name)
             mat.blend_method = 'BLEND'
@@ -73,6 +99,8 @@ class ImportGeometry(Operator, ImportHelper):
 
             # Building lods
             for i, lod in enumerate(model_element.lods):
+                if not lods_filter(i):
+                    continue
                 lod_indices = indices[lod.index_buffer_begin//3:lod.index_buffer_end//3]
                 lod_vertices = [vertices[i] for i in set(itertools.chain.from_iterable(lod_indices))]
                 lod_indices_vertex = [(lod_vertices.index(vertices[i[0]]), lod_vertices.index(vertices[i[1]]), lod_vertices.index((vertices[i[2]]))) for i in lod_indices] 	
@@ -85,7 +113,7 @@ class ImportGeometry(Operator, ImportHelper):
                         uv_layer.data[loop_idx].uv = lod_vertices[vert_idx].texcoord0
                 obj = bpy.data.objects.new(model_element.name + '_lod' + str(i), mesh)
                 obj.data.materials.append(mat)
-                collection.objects.link(obj)
+                lods_collections[i].objects.link(obj)
         
         armature = bpy.data.armatures.new("skeleton")
         armature_obj = bpy.data.objects.new("skeleton", armature)

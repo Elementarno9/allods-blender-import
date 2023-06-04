@@ -82,24 +82,24 @@ class XdbParser:
 
     @staticmethod
     def _parse_material(xml):
-        blend_effect = geometry.BlendEffect[xml.find('BlendEffect').text]
+        blend_effect = geometry.BlendEffect[xml.findtext('BlendEffect', default=geometry.BlendEffect.BLEND_EFFECT_ADD)]
         diffuse_texture = XdbParser._find_href(xml, 'diffuseTexture').split('#')[0]
-        scroll_alpha = bool(du.strtobool(xml.find('scrollAlpha').text))
-        scroll_rgb =  bool(du.strtobool(xml.find('ScrollRGB').text))
+        scroll_alpha = bool(du.strtobool(xml.findtext('scrollAlpha', default=True)))
+        scroll_rgb = bool(du.strtobool(xml.findtext('ScrollRGB', default=True)))
         transparency_texture = XdbParser._find_href(xml, 'transparencyTexture')
-        transparent = bool(du.strtobool(xml.find('transparent').text))
-        use_fog = bool(du.strtobool(xml.find('useFog').text))
-        u_translate_speed = float(xml.find('uTranslateSpeed').text)
-        visible = bool(du.strtobool(xml.find('visible').text))
-        v_translate_speed = float(du.strtobool(xml.find('vTranslateSpeed').text))
+        transparent = bool(du.strtobool(xml.findtext('transparent', default=True)))
+        use_fog = bool(du.strtobool(xml.findtext('useFog', default=True)))
+        u_translate_speed = float(xml.findtext('uTranslateSpeed', default=0.))
+        visible = bool(du.strtobool(xml.findtext('visible', default=True)))
+        v_translate_speed = float(xml.findtext('vTranslateSpeed', default=0.))
         return geometry.Material(blend_effect, diffuse_texture, scroll_alpha, scroll_rgb, transparency_texture, transparent, use_fog, u_translate_speed, visible, v_translate_speed)
 
     @staticmethod
     def _parse_geometry_fragment(xml):
-        index_buffer_begin = int(xml.find('indexBufferBegin').text)
-        index_buffer_end = int(xml.find('indexBufferEnd').text)
-        vertex_buffer_begin = int(xml.find('vertexBufferBegin').text)
-        vertex_buffer_end = int(xml.find('vertexBufferEnd').text)
+        index_buffer_begin = int(xml.findtext('indexBufferBegin'))
+        index_buffer_end = int(xml.findtext('indexBufferEnd'))
+        vertex_buffer_begin = int(xml.findtext('vertexBufferBegin'))
+        vertex_buffer_end = int(xml.findtext('vertexBufferEnd'))
         return geometry.GeometryFragment(vertex_buffer_begin, vertex_buffer_end, index_buffer_begin, index_buffer_end)
 
     @staticmethod
