@@ -71,7 +71,7 @@ class XdbParser:
         return self._model_elements
 
     def get_binary_file(self):
-        return XdbParser._find_href(self.content, 'binaryFile')
+        return XdbParser._find_href(self.content, 'binaryFile').strip('/')
     
     def get_texture_info(self):
         return (
@@ -83,7 +83,7 @@ class XdbParser:
     @staticmethod
     def _parse_material(xml):
         blend_effect = geometry.BlendEffect[xml.findtext('BlendEffect', default=geometry.BlendEffect.BLEND_EFFECT_ADD)]
-        diffuse_texture = XdbParser._find_href(xml, 'diffuseTexture').split('#')[0]
+        diffuse_texture = XdbParser._find_href(xml, 'diffuseTexture').split('#')[0].strip('/')
         scroll_alpha = bool(du.strtobool(xml.findtext('scrollAlpha', default=True)))
         scroll_rgb = bool(du.strtobool(xml.findtext('ScrollRGB', default=True)))
         transparency_texture = XdbParser._find_href(xml, 'transparencyTexture')
